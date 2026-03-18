@@ -2,6 +2,13 @@
 
 Transfer text between two devices using **inaudible sound** — no internet, no Bluetooth, no WiFi required.
 
+## Live Demo
+
+👉 [https://shivamkunkolikar.github.io/sonic_link/](https://shivamkunkolikar.github.io/sonic_link/)
+
+Open the link on two devices and you're ready to go — no installation needed.
+
+
 ---
 
 ## How It Works
