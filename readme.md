@@ -47,7 +47,7 @@ Z → 21195 Hz
 1. Open `index.html` or visit above `live demo link` in a browser on **both devices**
 2. On **Device A** → choose **Transmitter** → type message → tap Send
 3. On **Device B** → choose **Receiver** → tap Start Listening
-4. Hold devices **10–30 cm apart**, speaker facing microphone
+4. Hold devices near to each other, and speaker volume high for Transmitter.
 5. Message appears on receiver screen character by character
 
 > Works entirely in the browser. No installation, no server, no libraries.
