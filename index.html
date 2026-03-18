@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SonicLink</title>
+<style>
+  body {
+    background: #0a0f1a;
+    color: #e0f0ff;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    margin: 0;
+  }
+
+  h1 { color: #00ccff; font-size: 28px; margin-bottom: 4px; }
+  p.sub { color: #446688; font-size: 12px; margin-bottom: 30px; }
+
+  .card {
+    background: #111827;
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    padding: 28px;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .mode-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  button {
+    background: #1a2a3a;
+    border: 1px solid #2a4a6a;
+    border-radius: 8px;
+    color: #88ccff;
+    font-family: monospace;
+    font-size: 14px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  button:hover { background: #1e3a5a; border-color: #00ccff; color: #00ccff; }
+  button.active { background: #003355; border-color: #00ccff; color: #00ccff; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-send {
+    background: linear-gradient(135deg, #cc4400, #ff6600);
+    border-color: #ff6600;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+    margin-top: 12px;
+  }
+  .btn-send:hover { filter: brightness(1.2); }
+
+  textarea {
+    width: 100%;
+    background: #0a1520;
+    border: 1px solid #1e3a5f;
+    border-radius: 8px;
+    color: #00ffaa;
+    font-family: monospace;
+    font-size: 15px;
+    padding: 12px;
+    min-height: 80px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    margin-top: 12px;
+  }
+  textarea:focus { border-color: #00ccff; }
+  textarea[readonly] { color: #00ff88; border-color: #004422; }
+
+  .status {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #0a1520;
+    border-radius: 6px;
+    border: 1px solid #1e3a5f;
+    font-size: 12px;
+    color: #446688;
+    min-height: 36px;
+  }
+  .status.on  { color: #00ff88; border-color: #00aa44; }
+  .status.err { color: #ff6666; border-color: #661111; }
+
+  label { font-size: 11px; color: #446688; letter-spacing: 2px; text-transform: uppercase; }
+
+  .section { margin-top: 18px; }
+
+  #progress {
+    height: 4px;
+    background: #1a2a3a;
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+    display: none;
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6600, #00ccff);
+    width: 0%;
+    transition: width 0.1s;
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<h1>🔊 SonicLink</h1>
+<p class="sub">Transfer text using ultrasonic sound (19–22 kHz)</p>
+
+<div class="card">
+
+  <!-- Step 1: pick mode -->
+  <div id="step-pick">
+    <label>Choose this device's role</label>
+    <div class="mode-row" style="margin-top:12px;">
+      <button onclick="pickMode('tx')">📡<br>Transmitter<br><small style="color:#446688">Send via speaker</small></button>
+      <button onclick="pickMode('rx')">🎙️<br>Receiver<br><small style="color:#446688">Listen via mic</small></button>
+    </div>
+  </div>
+
+  <!-- Transmitter UI -->
+  <div id="ui-tx" class="hidden">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="goBack()" style="width:auto;padding:6px 12px;">← Back</button>
+      <span style="color:#ff6633;font-size:13px;">📡 TRANSMITTER</span>
+    </div>
+    <label>Type your message (letters, numbers, space)</label>
+    <textarea id="tx-msg" placeholder="Hello world"></textarea>
+    <button class="btn-send" id="btn-send" onclick="transmit()">⚡ Send via Speaker</button>
+    <div id="progress"><div id="progress-fill"></div></div>
+    <div class="status" id="tx-status">Ready. Type a message and press Send.</div>
+  </div>
+
+  <!-- Receiver UI -->
+  <div id="ui-rx" class="hidden">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="goBack()" style="width:auto;padding:6px 12px;">← Back</button>
+      <span style="color:#00cc88;font-size:13px;">🎙️ RECEIVER</span>
+    </div>
+    <button id="btn-listen" onclick="toggleListen()">🎙️ Start Listening</button>
+    <div class="section">
+      <label>Received text</label>
+      <textarea id="rx-output" readonly placeholder="Received message will appear here..."></textarea>
+    </div>
+    <button onclick="document.getElementById('rx-output').value=''" style="margin-top:8px;font-size:12px;">🗑 Clear</button>
+    <div class="status" id="rx-status">Press Start Listening, then transmit from the other device.</div>
+  </div>
+
+</div>
+
+<script>
+// =============================================================
+//  CHARACTER → FREQUENCY MAP
+//  Each character gets its own unique frequency between 19–22kHz.
+//  Spread evenly so they're easy to distinguish.
+// =============================================================
+
+// All supported characters
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?';
+
+const FREQ_MIN = 19000;  // Hz
+const FREQ_MAX = 22000;  // Hz
+const TONE_MS  = 300;    // How long each character tone plays (ms)
+const GAP_MS   = 80;     // Silent gap between characters (ms)
+const TOLERANCE = 60;    // Hz — how close detected freq must be to a char freq
+
+// Build the map: char → frequency, and frequency → char
+const CHAR_TO_FREQ = {};
+const FREQ_TO_CHAR = {};
+
+CHARS.split('').forEach((ch, i) => {
+  // Spread chars evenly across the frequency range
+  const freq = FREQ_MIN + (i / (CHARS.length - 1)) * (FREQ_MAX - FREQ_MIN);
+  CHAR_TO_FREQ[ch] = freq;
+  FREQ_TO_CHAR[freq] = ch;
+});
+
+// List of all known frequencies (for matching)
+const ALL_FREQS = Object.values(CHAR_TO_FREQ);
+
+// Given a detected frequency, find the closest character
+function freqToChar(detectedFreq) {
+  let bestChar = null;
+  let bestDist = Infinity;
+  for (const [ch, freq] of Object.entries(CHAR_TO_FREQ)) {
+    const dist = Math.abs(freq - detectedFreq);
+    if (dist < bestDist) { bestDist = dist; bestChar = ch; }
+  }
+  return bestDist <= TOLERANCE ? bestChar : null;
+}
+
+// =============================================================
+//  UI NAVIGATION
+// =============================================================
+function pickMode(mode) {
+  document.getElementById('step-pick').classList.add('hidden');
+  if (mode === 'tx') document.getElementById('ui-tx').classList.remove('hidden');
+  else               document.getElementById('ui-rx').classList.remove('hidden');
+}
+function goBack() {
+  stopListening();
+  document.getElementById('ui-tx').classList.add('hidden');
+  document.getElementById('ui-rx').classList.add('hidden');
+  document.getElementById('step-pick').classList.remove('hidden');
+}
+
+// =============================================================
+//  TRANSMITTER
+//  For each character: play its frequency tone for TONE_MS,
+//  then silence for GAP_MS, then next character.
+//  All scheduled ahead of time using Web Audio API clock.
+// =============================================================
+async function transmit() {
+  // Convert input to uppercase, keep only supported chars
+  const raw = document.getElementById('tx-msg').value.toUpperCase();
+  const text = raw.split('').filter(ch => CHARS.includes(ch)).join('');
+
+  if (!text) {
+    setStatus('tx', 'No valid characters to send!', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+
+  const totalMs = text.length * (TONE_MS + GAP_MS);
+  setStatus('tx', `Sending ${text.length} characters (${(totalMs/1000).toFixed(1)}s)...`);
+  showProgress(true);
+
+  // Create audio context
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  let t = ctx.currentTime + 0.05;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const freq = CHAR_TO_FREQ[ch];
+
+    // Play tone for this character
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    const dur = TONE_MS / 1000;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.6, t + 0.01);
+    gain.gain.setValueAtTime(0.6, t + dur - 0.01);
+    gain.gain.linearRampToValueAtTime(0, t + dur);
+
+    osc.start(t);
+    osc.stop(t + dur);
+
+    t += (TONE_MS + GAP_MS) / 1000;
+  }
+
+  // Animate progress bar
+  const t0 = performance.now();
+  (function tick() {
+    const pct = Math.min(100, (performance.now() - t0) / totalMs * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    if (pct < 100) requestAnimationFrame(tick);
+  })();
+
+  // Wait for playback to finish
+  await new Promise(r => setTimeout(r, totalMs + 300));
+
+  ctx.close();
+  btn.disabled = false;
+  showProgress(false);
+  setStatus('tx', `✓ Sent: "${text}"`, 'on');
+}
+
+function showProgress(on) {
+  document.getElementById('progress').style.display = on ? 'block' : 'none';
+  document.getElementById('progress-fill').style.width = '0%';
+}
+
+// =============================================================
+//  RECEIVER
+//  Uses Web Audio API AnalyserNode to look at live mic input.
+//  Every ~50ms, find the loudest frequency in the 19–22kHz range.
+//  If it's close to a known character frequency AND loud enough,
+//  record that character (debounced so each tone is counted once).
+// =============================================================
+let listening = false;
+let micCtx = null;
+let micStream = null;
+let analyser = null;
+let pollTimer = null;
+
+// Debounce: once ANY character is detected, block ALL detections
+// for the full tone+gap duration so each tone is counted exactly once
+let lastCharTime = 0;
+const DEBOUNCE_MS = TONE_MS + GAP_MS; // full tone + gap before next char allowed
+
+async function toggleListen() {
+  if (listening) stopListening();
+  else await startListening();
+}
+
+async function startListening() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,  // IMPORTANT: don't mess with our signal
+        noiseSuppression: false,
+        autoGainControl: false,
+      }
+    });
+  } catch(e) {
+    setStatus('rx', 'Microphone error: ' + e.message, 'err');
+    return;
+  }
+
+  micCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = micCtx.createMediaStreamSource(micStream);
+
+  analyser = micCtx.createAnalyser();
+  analyser.fftSize = 8192;           // Large FFT = better frequency resolution
+  analyser.smoothingTimeConstant = 0; // No smoothing — we want instant response
+
+  source.connect(analyser);
+
+  listening = true;
+  document.getElementById('btn-listen').textContent = '⏹ Stop Listening';
+  document.getElementById('btn-listen').classList.add('active');
+  setStatus('rx', 'Listening... transmit from the other device now.', 'on');
+
+  // Poll every 50ms
+  pollTimer = setInterval(pollMic, 50);
+}
+
+function pollMic() {
+  if (!analyser) return;
+
+  const bufferLen = analyser.frequencyBinCount;   // = fftSize / 2
+  const dataArray = new Uint8Array(bufferLen);
+  analyser.getByteFrequencyData(dataArray);        // 0-255 magnitude per bin
+
+  const sampleRate = micCtx.sampleRate;            // usually 44100 or 48000
+  const binHz = sampleRate / (2 * bufferLen);      // Hz per bin
+
+  // Find the loudest bin in the 19kHz–22kHz range
+  const binStart = Math.floor(FREQ_MIN / binHz);
+  const binEnd   = Math.ceil(FREQ_MAX  / binHz);
+
+  let maxMag = 0;
+  let maxBin = -1;
+
+  for (let b = binStart; b <= binEnd && b < bufferLen; b++) {
+    if (dataArray[b] > maxMag) {
+      maxMag = dataArray[b];
+      maxBin = b;
+    }
+  }
+
+  // Only act if the signal is strong enough (above noise floor)
+  // 80/255 ≈ 31% — adjust down if your speaker/mic is weak
+  if (maxMag < 92 || maxBin < 0) return;
+
+  const detectedFreq = maxBin * binHz;
+
+  // Match to nearest character
+  const ch = freqToChar(detectedFreq);
+  if (!ch) return;
+
+  // Debounce — block ALL detections for full tone+gap after any accepted char
+  const now = Date.now();
+  if ((now - lastCharTime) < DEBOUNCE_MS) return;
+
+  // New character detected!
+  lastCharTime = now;
+
+  const out = document.getElementById('rx-output');
+  out.value += ch;
+  out.scrollTop = out.scrollHeight;
+
+  setStatus('rx', `Detected: "${ch}" @ ${detectedFreq.toFixed(0)} Hz (strength: ${maxMag})`, 'on');
+}
+
+function stopListening() {
+  listening = false;
+  clearInterval(pollTimer);
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (micCtx) { micCtx.close(); micCtx = null; }
+  analyser = null;
+  document.getElementById('btn-listen').textContent = '🎙️ Start Listening';
+  document.getElementById('btn-listen').classList.remove('active');
+  setStatus('rx', 'Stopped.', '');
+}
+
+function setStatus(side, msg, cls) {
+  const el = document.getElementById(side + '-status');
+  el.textContent = msg;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+</script>
+</body>
+</html>
