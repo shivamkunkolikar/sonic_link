@@ -70,7 +70,7 @@ Z → 21195 Hz
 - **Range:** ~tested for range upto 6 metres in moderately noisy enviroment  
 - **Noise:** Loud environments can cause random character detections
 - **Some older phones** roll off frequencies above 18 kHz and may not work
-- **Unreliability** Message sent can be distorted due to external noise or hardware defect
+- **Unreliability:** Message sent can be distorted due to external noise or hardware defect
 
 ---
 
@@ -88,7 +88,7 @@ Z → 21195 Hz
 ## Files
 
 ```
-ultrasound-transfer.html   — entire app, single file, no dependencies
+index.html                 — entire app, single file, no dependencies
 README.md                  — this file
 ```
 
